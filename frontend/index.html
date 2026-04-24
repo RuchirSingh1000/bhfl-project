@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>BFHL Node Processor</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --border: #2a2a3a;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --ok: #22c55e;
+    --err: #f43f5e;
+    --warn: #f59e0b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  /* grid bg */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.35;
+  }
+  .glow {
+    position: fixed; top: -200px; left: 50%; transform: translateX(-50%);
+    width: 700px; height: 400px;
+    background: radial-gradient(ellipse, rgba(0,229,255,0.07) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+  .container {
+    position: relative; z-index: 1;
+    max-width: 900px; margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+  header { text-align: center; margin-bottom: 2.5rem; }
+  .badge {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  h1 {
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    font-weight: 800; letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #fff 30%, var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    line-height: 1.1;
+  }
+  .subtitle { color: var(--muted); margin-top: 0.5rem; font-size: 0.95rem; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .card-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 0.75rem;
+  }
+  .url-input {
+    width: 100%; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.6rem 1rem; color: var(--text);
+    font-family: 'Space Mono', monospace; font-size: 0.85rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .url-input:focus { border-color: var(--accent); }
+
+  textarea {
+    width: 100%; min-height: 130px;
+    background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 1rem; color: var(--text);
+    font-family: 'Space Mono', monospace; font-size: 0.85rem;
+    resize: vertical; outline: none; transition: border-color 0.2s;
+    line-height: 1.6;
+  }
+  textarea:focus { border-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 0.78rem; margin-top: 0.5rem; font-family: 'Space Mono', monospace; }
+
+  .btn {
+    width: 100%; padding: 0.9rem;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    color: #000; font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 1rem; letter-spacing: 0.05em;
+    border: none; border-radius: 8px; cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+    margin-top: 0.25rem;
+  }
+  .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .error-msg {
+    background: rgba(244,63,94,0.1); border: 1px solid var(--err);
+    border-radius: 8px; padding: 1rem; color: var(--err);
+    font-family: 'Space Mono', monospace; font-size: 0.85rem;
+    display: none; margin-top: 1rem;
+  }
+
+  /* Result area */
+  #result { display: none; margin-top: 1.5rem; }
+  .meta-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem; margin-bottom: 1.25rem;
+  }
+  .meta-item {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.75rem 1rem;
+  }
+  .meta-item .k { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; font-family: 'Space Mono', monospace; }
+  .meta-item .v { font-size: 0.9rem; font-weight: 700; margin-top: 0.25rem; word-break: break-all; }
+
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .stat-box {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem; text-align: center;
+  }
+  .stat-num { font-size: 2rem; font-weight: 800; color: var(--accent); line-height: 1; }
+  .stat-label { font-size: 0.7rem; color: var(--muted); margin-top: 0.3rem; font-family: 'Space Mono', monospace; text-transform: uppercase; }
+
+  .section-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 0.75rem; margin-top: 1.25rem;
+  }
+
+  /* Tree cards */
+  .tree-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }
+  .tree-card {
+    background: var(--bg); border-radius: 8px; padding: 1rem;
+    border-left: 3px solid var(--accent);
+    position: relative; overflow: hidden;
+  }
+  .tree-card.cycle { border-left-color: var(--err); }
+  .tree-root { font-size: 1.1rem; font-weight: 800; }
+  .tree-depth { font-family: 'Space Mono', monospace; font-size: 0.75rem; color: var(--muted); margin-top: 0.2rem; }
+  .cycle-badge {
+    display: inline-block; background: rgba(244,63,94,0.15);
+    color: var(--err); border-radius: 4px;
+    font-size: 0.65rem; padding: 0.15rem 0.4rem;
+    font-family: 'Space Mono', monospace; margin-top: 0.3rem;
+  }
+  .tree-json {
+    margin-top: 0.75rem; font-family: 'Space Mono', monospace;
+    font-size: 0.72rem; color: var(--accent);
+    white-space: pre-wrap; word-break: break-all;
+    background: rgba(0,229,255,0.04); border-radius: 6px; padding: 0.5rem;
+    max-height: 120px; overflow-y: auto;
+  }
+
+  .tag-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .tag {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; padding: 0.25rem 0.6rem;
+    font-family: 'Space Mono', monospace; font-size: 0.75rem;
+  }
+  .tag.invalid { border-color: var(--err); color: var(--err); }
+  .tag.dup { border-color: var(--warn); color: var(--warn); }
+
+  .spinner {
+    display: inline-block; width: 18px; height: 18px;
+    border: 2px solid rgba(0,0,0,0.3); border-top-color: #000;
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+    vertical-align: middle; margin-right: 0.4rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .raw-toggle {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; padding: 0.3rem 0.8rem;
+    font-family: 'Space Mono', monospace; font-size: 0.7rem;
+    cursor: pointer; transition: border-color 0.2s;
+    margin-top: 1rem;
+  }
+  .raw-toggle:hover { border-color: var(--accent); color: var(--text); }
+  .raw-json {
+    display: none; margin-top: 0.75rem;
+    background: var(--bg); border-radius: 8px; padding: 1rem;
+    font-family: 'Space Mono', monospace; font-size: 0.72rem;
+    white-space: pre-wrap; word-break: break-all;
+    border: 1px solid var(--border); max-height: 300px; overflow-y: auto;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="container">
+  <header>
+    <div class="badge">Bajaj Finserv Health — Round 1</div>
+    <h1>Node Hierarchy<br/>Processor</h1>
+    <p class="subtitle">POST /bfhl · Tree analysis · Cycle detection</p>
+  </header>
+
+  <div class="card">
+    <div class="card-label">API Base URL</div>
+    <input class="url-input" id="apiUrl" type="text" placeholder="https://your-backend.onrender.com" value=""/>
+    <p class="hint"># No trailing slash. The app will call &lt;url&gt;/bfhl</p>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Node Input — comma or newline separated</div>
+    <textarea id="inputData" placeholder='A->B, A->C, B->D, C->E, E->F&#10;X->Y, Y->Z, Z->X&#10;P->Q, Q->R&#10;G->H, G->H, G->I&#10;hello, 1->2, A->'></textarea>
+    <p class="hint"># e.g. A->B, B->C, X->Y,Y->Z,Z->X</p>
+  </div>
+
+  <button class="btn" id="submitBtn" onclick="submit()">Submit</button>
+  <div class="error-msg" id="errMsg"></div>
+
+  <div id="result">
+    <div class="meta-grid" id="metaGrid"></div>
+
+    <p class="section-title">Summary</p>
+    <div class="summary-grid" id="summaryGrid"></div>
+
+    <p class="section-title">Hierarchies</p>
+    <div class="tree-grid" id="treeGrid"></div>
+
+    <p class="section-title" id="invLabel"></p>
+    <div class="tag-list" id="invalidList"></div>
+
+    <p class="section-title" id="dupLabel"></p>
+    <div class="tag-list" id="dupList"></div>
+
+    <button class="raw-toggle" onclick="toggleRaw()">{ } Raw JSON</button>
+    <div class="raw-json" id="rawJson"></div>
+  </div>
+</div>
+
+<script>
+function parseInput(raw) {
+  return raw.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
+}
+
+async function submit() {
+  const url = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
+  const raw = document.getElementById('inputData').value;
+  const data = parseInput(raw);
+  const btn = document.getElementById('submitBtn');
+  const errMsg = document.getElementById('errMsg');
+  const result = document.getElementById('result');
+
+  if (!url) { showErr('Please enter the API Base URL.'); return; }
+  if (!data.length) { showErr('Please enter some node data.'); return; }
+
+  errMsg.style.display = 'none';
+  result.style.display = 'none';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Processing...';
+
+  try {
+    const res = await fetch(`${url}/bfhl`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    renderResult(json);
+  } catch (e) {
+    showErr(`API call failed: ${e.message}. Check the URL and ensure CORS is enabled.`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Submit';
+  }
+}
+
+function showErr(msg) {
+  const el = document.getElementById('errMsg');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+function renderResult(d) {
+  // Meta
+  const mg = document.getElementById('metaGrid');
+  mg.innerHTML = [
+    ['User ID', d.user_id],
+    ['Email', d.email_id],
+    ['Roll Number', d.college_roll_number],
+  ].map(([k,v]) => `<div class="meta-item"><div class="k">${k}</div><div class="v">${v||'—'}</div></div>`).join('');
+
+  // Summary
+  const sg = document.getElementById('summaryGrid');
+  const s = d.summary || {};
+  sg.innerHTML = `
+    <div class="stat-box"><div class="stat-num">${s.total_trees ?? 0}</div><div class="stat-label">Valid Trees</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--err)">${s.total_cycles ?? 0}</div><div class="stat-label">Cycles</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--ok)">${s.largest_tree_root || '—'}</div><div class="stat-label">Largest Root</div></div>
+  `;
+
+  // Trees
+  const tg = document.getElementById('treeGrid');
+  tg.innerHTML = (d.hierarchies || []).map(h => {
+    if (h.has_cycle) return `
+      <div class="tree-card cycle">
+        <div class="tree-root">${h.root}</div>
+        <span class="cycle-badge">⚠ CYCLE</span>
+        <div class="tree-json">{}</div>
+      </div>`;
+    return `
+      <div class="tree-card">
+        <div class="tree-root">${h.root}</div>
+        <div class="tree-depth">depth: ${h.depth}</div>
+        <div class="tree-json">${JSON.stringify(h.tree, null, 1)}</div>
+      </div>`;
+  }).join('');
+
+  // Invalid
+  const inv = d.invalid_entries || [];
+  document.getElementById('invLabel').textContent = `Invalid Entries (${inv.length})`;
+  document.getElementById('invalidList').innerHTML = inv.map(e =>
+    `<span class="tag invalid">${e}</span>`).join('') || '<span style="color:var(--muted);font-size:0.8rem">None</span>';
+
+  // Duplicates
+  const dup = d.duplicate_edges || [];
+  document.getElementById('dupLabel').textContent = `Duplicate Edges (${dup.length})`;
+  document.getElementById('dupList').innerHTML = dup.map(e =>
+    `<span class="tag dup">${e}</span>`).join('') || '<span style="color:var(--muted);font-size:0.8rem">None</span>';
+
+  // Raw
+  document.getElementById('rawJson').textContent = JSON.stringify(d, null, 2);
+
+  document.getElementById('result').style.display = 'block';
+  document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function toggleRaw() {
+  const el = document.getElementById('rawJson');
+  el.style.display = el.style.display === 'block' ? 'none' : 'block';
+}
+</script>
+</body>
+</html>
