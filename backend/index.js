@@ -5,7 +5,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-
 const USER_ID = "ruchirsingh_24042005"; 
 const EMAIL_ID = "rs6404@srmist.edu.in";
 const ROLL    = "RA2311003011086";
