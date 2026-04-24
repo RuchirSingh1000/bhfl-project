@@ -5,11 +5,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ── CHANGE THESE ──────────────────────────────────────────
-const USER_ID = "ruchirsingh_24042005";   // e.g. johndoe_17091999
+
+const USER_ID = "ruchirsingh_24042005"; 
 const EMAIL_ID = "rs6404@srmist.edu.in";
 const ROLL    = "RA2311003011086";
-// ─────────────────────────────────────────────────────────
 
 function processData(data) {
   const invalid_entries = [];
